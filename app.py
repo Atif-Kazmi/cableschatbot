@@ -15,13 +15,16 @@ if torch.cuda.is_available():
 # Function to generate a response from the chatbot
 def generate_response(prompt):
     # Encode the prompt and prepare for generation
-    inputs = tokenizer(prompt, return_tensors="pt")
+    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
+    
+    # Move tensors to GPU if available
     if torch.cuda.is_available():
         inputs = {k: v.to('cuda') for k, v in inputs.items()}
 
     # Generate response with controlled parameters
     outputs = model.generate(
         inputs['input_ids'],
+        attention_mask=inputs['attention_mask'],  # Include the attention mask
         max_length=100,
         do_sample=True,        # Enable sampling for varied output
         temperature=0.5,      # Lower temperature for more deterministic output
