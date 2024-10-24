@@ -1,40 +1,53 @@
-import streamlit as st
-import torch
+# Import necessary libraries
 from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
-# Set page title
-st.title("Cable Industry Customer Service Chatbot")
+# Load the model and tokenizer
+model_name = "EleutherAI/gpt-neo-1.3B"  # You can replace this with your fine-tuned model
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
 
-# Cache model and tokenizer loading for better performance
-@st.cache(allow_output_mutation=True)
-def load_model():
-    model_name = "gpt2"  # Use a smaller model for faster performance
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name)
-    model = model.half()  # Use half-precision for faster inference
-    return model, tokenizer
+# Move the model to evaluation mode and to GPU if available
+model.eval()
+if torch.cuda.is_available():
+    model = model.to('cuda')
 
-model, tokenizer = load_model()
-
-# Function to generate responses using the loaded model
+# Function to generate a response from the chatbot
 def generate_response(prompt):
+    # Encode the prompt and prepare for generation
     inputs = tokenizer(prompt, return_tensors="pt")
+    if torch.cuda.is_available():
+        inputs = {k: v.to('cuda') for k, v in inputs.items()}
+
+    # Generate response with controlled parameters
     outputs = model.generate(
-        inputs.input_ids,
-        max_length=100,  # Reduced max_length for faster response
-        num_beams=3,     # Using beam search instead of sampling
+        inputs['input_ids'],
+        max_length=100,
+        do_sample=True,        # Enable sampling for varied output
+        temperature=0.5,      # Lower temperature for more deterministic output
+        top_p=0.9,            # Nucleus sampling
         pad_token_id=tokenizer.eos_token_id
     )
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-# Streamlit UI for Chatbot Interaction
-st.subheader("Chat with the Cable Industry Assistant")
-user_input = st.text_input("Ask a question about the cable industry:")
+    # Decode the response and strip whitespace
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    response = response.strip()
+    
+    # Post-processing: Check for repetitive phrases
+    if "A cable is a type of cable" in response:
+        return "Could you please specify which type of cable you're referring to? We have various options like coaxial, fiber optic, and HDMI."
 
-if st.button("Generate Response"):
-    if user_input:
-        with st.spinner('Generating response...'):
-            response = generate_response(user_input)
-            st.write(f"**Response:** {response}")
-    else:
-        st.write("Please enter a question.")
+    return response
+
+# Example usage
+if __name__ == "__main__":
+    # Set the initial context for the chatbot
+    context = "You are a helpful assistant in the cable industry. Please provide detailed and accurate answers."
+
+    # Sample prompt
+    user_input = "What are types of cables?"
+    full_prompt = f"{context}\nUser: {user_input}\nAssistant:"
+
+    # Generate and print the response
+    response = generate_response(full_prompt)
+    print(response)
