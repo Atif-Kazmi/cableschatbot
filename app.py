@@ -1,11 +1,17 @@
 # Import necessary libraries
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+import streamlit as st
 
 # Load the model and tokenizer
 model_name = "EleutherAI/gpt-neo-1.3B"  # You can replace this with your fine-tuned model
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name)
+
+try:
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+except Exception as e:
+    st.error(f"Error loading model: {e}")
+    st.stop()
 
 # Move the model to evaluation mode and to GPU if available
 model.eval()
@@ -42,15 +48,14 @@ def generate_response(prompt):
 
     return response
 
-# Example usage
-if __name__ == "__main__":
-    # Set the initial context for the chatbot
-    context = "You are a helpful assistant in the cable industry. Please provide detailed and accurate answers."
+# Streamlit application
+st.title("Cable Industry Chatbot")
+context = "You are a helpful assistant in the cable industry. Please provide detailed and accurate answers."
 
-    # Sample prompt
-    user_input = "What are types of cables?"
+# User input for chatbot
+user_input = st.text_input("Ask me anything about cables:")
+
+if user_input:
     full_prompt = f"{context}\nUser: {user_input}\nAssistant:"
-
-    # Generate and print the response
     response = generate_response(full_prompt)
-    print(response)
+    st.write(response)
